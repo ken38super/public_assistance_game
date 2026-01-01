@@ -1225,19 +1225,15 @@ const handleCanvasInput = (e) => {
         clientY = e.clientY;
     }
 
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
+    // Correctly map visual coordinates to internal canvas coordinates
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
 
     if (showEndScreen) {
-        // Button area: center-80 to center+80, center+80 to center+130
-        const btnX = canvas.width / 2 - 80;
-        const btnY = canvas.height / 2 + 80;
-        const btnW = 160;
-        const btnH = 50;
-
-        if (x >= btnX && x <= btnX + btnW && y >= btnY && y <= btnY + btnH) {
-            startGame();
-        }
+        // Allow clicking ANYWHERE to restart, improving mobile UX
+        startGame();
     } else {
         // In-game: visual tap effect or just trigger input
         // Treat any tap as 'Space' (Interact / Next)
