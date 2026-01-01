@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>生活保護申請ゲーム</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="title">福祉ギルド</div>
+      <div class="hud">
+        <div class="hud-label">STATUS</div>
+        <div class="bars" aria-label="status bars">
+          <div class="bar-row">
+            <span class="bar-name">疲労</span>
+            <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="fatigue">
+              <div id="bar-fatigue" class="bar-fill"></div>
+            </div>
+            <span id="val-fatigue" class="bar-val">0%</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-name">時間</span>
+            <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="time">
+              <div id="bar-time" class="bar-fill"></div>
+            </div>
+            <span id="val-time" class="bar-val">100%</span>
+          </div>
+
+          <div class="bar-row">
+            <span class="bar-name">心理</span>
+            <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="psyche">
+              <div id="bar-psyche" class="bar-fill"></div>
+            </div>
+            <span id="val-psyche" class="bar-val">100%</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="stage">
+      <canvas id="gameCanvas" width="640" height="480" aria-label="game canvas"></canvas>
+
+      <section id="dialogue-box" class="dialogue hidden" role="dialog" aria-live="polite">
+        <div id="dialogue-text" class="dialogue-text"></div>
+        <!-- choices are injected here -->
+      </section>
+
+      <!-- Mobile / touch A button REMOVED -->
+
+      <aside class="help">
+        <div class="help-title">操作</div>
+        <ul>
+          <li>スペース / Enter：話しかける、次へ進む</li>
+          <li>選択肢：ボタンをクリック</li>
+        </ul>
+      </aside>
+    </main>
+
+    <footer class="footer">
+      <span></span>
+    </footer>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+
+</html>
