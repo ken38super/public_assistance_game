@@ -672,7 +672,7 @@ const dialogueTree = {
     },
 
     'step50_begging': {
-        text: "【相談員】 道端で座って恵んでもらえば？ それが一番あなたにお似合いですよ。",
+        text: "【相談員】 道端で座って恵んでもらえば？\nそれが一番あなたにお似合いですよ。",
         choices: [
             { text: "それはハラスメントですね。差別じゃないんですか？", next: 'step51_forms', effects: { fatigue: 5, psyche: -4, time: -2 } },
             { text: "警察に捕まりかねませんよ？", next: 'step51_forms', effects: { fatigue: 5, psyche: -3, time: -2 } },
@@ -1179,6 +1179,7 @@ function handleInput(code) {
                     closeDialogue();
                     endScreenText = 'THE END';
                     showEndScreen = true;
+                    playGameOverSound();
                 } else if (currentDialogueNode && currentDialogueNode.next) {
                     showNode(currentDialogueNode.next);
                 } else {
@@ -1262,6 +1263,10 @@ function startGame() {
     currentActiveChoices = [];
     cutsceneState = 'none';
     celebrationActive = false;
+
+    // Initialize Audio on first interaction
+    initAudio();
+    stopBGM(); // Reset any playing BGM
 
     currentHP = maxHP;
     lastSafeNodeId = 'step0_intro';
@@ -1383,6 +1388,7 @@ let celebrationActive = false;
 let celebrationParticles = [];
 function startCelebration() {
     celebrationActive = true;
+    playFanfare();
     celebrationParticles = [];
     for (let i = 0; i < 100; i++) {
         celebrationParticles.push({
@@ -1449,8 +1455,13 @@ function showNode(nodeId) {
         }
 
         updateStatusUI();
+        updateStatusUI();
         shakeTimer = 20; // 20 frames of shake
         shakeIntensity = 10;
+
+        // Play Incorrect Sound for any failure
+        if (currentHP > 0) playIncorrectSound();
+
         if (currentHP <= 0) {
             let gameOverText = "【相談員】 ……適当なことばかり言っていると、信用を失いますよ。\nこれ以上は対応できません。お引き取りください。\n\n<span style='font-weight:bold; font-size:1.2em; color:red;'>（メンタルが崩壊した……）</span>";
 
@@ -1468,6 +1479,7 @@ function showNode(nodeId) {
             endScreenText = 'GAME OVER';
             endScreenType = 'game_over';
             showEndScreen = true;
+            playGameOverSound();
             const existingChoices = document.querySelectorAll('.choice-container');
             existingChoices.forEach(el => el.remove());
             return;
@@ -1701,9 +1713,123 @@ window.jumpToNode = function (nodeId) {
     }
 };
 
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'x' || e.key === 'X') {
-        const input = prompt("【デバッグ用】ジャンプしたいノードIDを入力してください（例: step29_trap / fail_lazy）");
-        if (input !== null) jumpToNode(input.trim());
+
+
+// ==========================================
+// AUDIO SYSTEM (Web Audio API)
+// ==========================================
+let audioCtx = null;
+let bgmOscillators = [];
+
+function initAudio() {
+    if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
     }
-});
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+function playTone(freq, type, duration, startTime = 0) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    osc.type = type;
+    osc.frequency.value = freq;
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    osc.start(audioCtx.currentTime + startTime);
+    osc.stop(audioCtx.currentTime + startTime + duration);
+
+    // Smooth envelope
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime + startTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + startTime + duration);
+
+    return osc;
+}
+
+function playIncorrectSound() {
+    initAudio();
+    // Low "Buzz" sound (Sawtooth, low pitch)
+    // Play two short pulses
+    playTone(150, 'sawtooth', 0.1, 0);
+    playTone(120, 'sawtooth', 0.2, 0.15);
+}
+
+function playGameOverSound() {
+    initAudio();
+    stopBGM();
+
+    // "Sad" Melody (Minor key arpeggio: A minor)
+    // A3, C4, E4, A4 ... slow
+    const now = audioCtx.currentTime;
+    const notes = [
+        { f: 220.00, d: 0.5, t: 0.0 }, // A3
+        { f: 261.63, d: 0.5, t: 0.5 }, // C4
+        { f: 311.13, d: 0.5, t: 1.0 }, // Eb4 (Diminished feel)
+        { f: 220.00, d: 1.5, t: 1.5 }, // A3
+    ];
+
+    notes.forEach(n => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle'; // Softer than square/saw
+        osc.frequency.value = n.f;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now + n.t);
+        osc.stop(now + n.t + n.d);
+
+        gain.gain.setValueAtTime(0.1, now + n.t);
+        gain.gain.linearRampToValueAtTime(0, now + n.t + n.d);
+
+        bgmOscillators.push(osc);
+    });
+}
+
+function playFanfare() {
+    initAudio();
+    stopBGM();
+
+    // Fanfare (Major key: C Major)
+    // C4, E4, G4, C5!
+    const now = audioCtx.currentTime;
+    const notes = [
+        { f: 523.25, d: 0.1, t: 0.0 }, // C5
+        { f: 523.25, d: 0.1, t: 0.15 }, // C5 (staccato)
+        { f: 523.25, d: 0.1, t: 0.30 }, // C5
+        { f: 659.25, d: 0.6, t: 0.45 }, // E5
+        { f: 783.99, d: 0.6, t: 0.45 }, // G5 (Simulated chord)
+        { f: 1046.50, d: 0.8, t: 0.45 }, // C6 (High note!)
+    ];
+
+    notes.forEach(n => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square'; // Brighter sound for fanfare
+        osc.frequency.value = n.f;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now + n.t);
+        osc.stop(now + n.t + n.d);
+
+        gain.gain.setValueAtTime(0.05, now + n.t);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + n.t + n.d);
+
+        bgmOscillators.push(osc);
+    });
+}
+
+function stopBGM() {
+    bgmOscillators.forEach(osc => {
+        try { osc.stop(); } catch (e) { }
+    });
+    bgmOscillators = [];
+}
+
