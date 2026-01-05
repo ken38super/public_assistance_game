@@ -26,8 +26,13 @@ let player = {
     y: 270,
     width: 64,
     height: 64,
-    speed: 4,
-    direction: 'down' // 'up', 'down', 'left', 'right'
+    speed: 2, // Slower for ambient movement
+    direction: 'down', // 'up', 'down', 'left', 'right'
+    // Auto-movement properties
+    targetX: 288,
+    targetY: 270,
+    state: 'idle', // 'idle' | 'moving'
+    waitTimer: 60 // Wait frames
 };
 
 // Shake Effect
@@ -1322,26 +1327,84 @@ function update() {
         }
     }
 
-    if (isDialogueOpen || cutsceneState !== 'none') return;
+    if (cutsceneState !== 'none') return;
 
-    // Movement logic removed. Player is static.
-    /*
-    let dx = 0;
-    let dy = 0;
+    // Automatic Movement Logic (Random Walk)
+    if (player.state === 'idle') {
+        player.waitTimer--;
+        if (player.waitTimer <= 0) {
+            setRandomTarget();
+        }
+    } else if (player.state === 'moving') {
+        const dx = player.targetX - player.x;
+        const dy = player.targetY - player.y;
+        const dist = Math.hypot(dx, dy);
 
-    if (keys['ArrowUp'] || keys['w']) { dy = -player.speed; player.direction = 'up'; }
-    if (keys['ArrowDown'] || keys['s']) { dy = player.speed; player.direction = 'down'; }
-    if (keys['ArrowLeft'] || keys['a']) { dx = -player.speed; player.direction = 'left'; }
-    if (keys['ArrowRight'] || keys['d']) { dx = player.speed; player.direction = 'right'; }
+        if (dist < player.speed) {
+            // Arrived
+            player.x = player.targetX;
+            player.y = player.targetY;
+            player.state = 'idle';
+            player.waitTimer = 60 + Math.random() * 120; // Wait 1-3 seconds
+        } else {
+            // Move
+            const moveX = (dx / dist) * player.speed;
+            const moveY = (dy / dist) * player.speed;
 
-    if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+            // Update Direction
+            if (Math.abs(moveX) > Math.abs(moveY)) {
+                player.direction = moveX > 0 ? 'right' : 'left';
+            } else {
+                player.direction = moveY > 0 ? 'down' : 'up';
+            }
 
-    const nextX = player.x + dx;
-    const nextY = player.y + dy;
+            const nextX = player.x + moveX;
+            const nextY = player.y + moveY;
 
-    if (!checkCollision(nextX, player.y)) { player.x = nextX; }
-    if (!checkCollision(player.x, nextY)) { player.y = nextY; }
-    */
+            // Simple collision check (if blocked, stop and wait)
+            let collided = false;
+            if (!checkCollision(nextX, player.y)) {
+                player.x = nextX;
+            } else {
+                collided = true;
+            }
+
+            if (!checkCollision(player.x, nextY)) {
+                player.y = nextY;
+            } else {
+                collided = true;
+            }
+
+            if (collided) {
+                // If stuck, give up and wait
+                player.state = 'idle';
+                player.waitTimer = 30;
+            }
+        }
+    }
+}
+
+function setRandomTarget() {
+    let attempts = 0;
+    // Try to find a valid target point
+    while (attempts < 10) {
+        const tx = Math.random() * (canvas.width - player.width);
+        const ty = Math.random() * (canvas.height - player.height);
+
+        // Use a slightly stricter check for the target destination to ensure it's not inside an obstacle
+        // Just checking the top-left corner is not enough, better to check the center or feet
+        // Re-using checkCollision for the target coordinates
+        if (!checkCollision(tx, ty)) {
+            player.targetX = tx;
+            player.targetY = ty;
+            player.state = 'moving';
+            return;
+        }
+        attempts++;
+    }
+    // Failed to find target, wait a bit
+    player.state = 'idle';
+    player.waitTimer = 30;
 }
 
 const obstacles = [
